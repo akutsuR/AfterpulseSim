@@ -3,7 +3,7 @@
 void AddNoiseHits(const bool addAP, const bool addDN)
 {
     int nEntries=fTree[eIN][eHitT]->GetEntries();
-    cout<<" Looking over " << nEntries <<endl;
+    cout<<" Start processing " << nEntries <<" events.... " <<endl;
 
     vector<int> photon_ids(1, -1); // Dummy
     WCSimRootTrigger* anEvent=NULL;
@@ -21,23 +21,26 @@ void AddNoiseHits(const bool addAP, const bool addDN)
     Int_t mPMT_id=-99999;
     Int_t mPMT_PMTid=-999999;
 
-    for(int i=0; i<nEntries; i++)
+    bool verbose=true;
+    for(int iEntry=0; iEntry<nEntries; iEntry++)
     {
-        fTree[eIN][eHitT]->GetEntry( i );
+        fTree[eIN][eHitT]->GetEntry( iEntry );
         anEvent=fWCEvent->GetTrigger(0);
 
         nDigiHits=anEvent->GetNcherenkovdigihits();
         if( nDigiHits==0 )
         {
-            cout<<" No trigger is issued -> SKIP THiS EVENT " <<endl;
+            cout<<" No DAQ trigger is issued -> SKIP THiS EVENT " <<endl;
             continue;
         }
 
         nAP=0;
         nDN=0;
 
+        // afterpulse
         if( addAP )
         {
+            float t_first=GetFirstHitTime(anEvent);
             for(int j=0; j<nDigiHits; j++)
             {
                 aHit=dynamic_cast<WCSimRootCherenkovDigiHit*>( anEvent->GetCherenkovDigiHits()->At(j) );
@@ -46,7 +49,7 @@ void AddNoiseHits(const bool addAP, const bool addDN)
                     q_afterpulse=fPE->GetDigitizedSPE();
                     t_afterpulse=aHit->GetT() + fAP->GetAfterPulseTiming()*1000.; // mus -> ns
                     anEvent->AddCherenkovDigiHit(q_afterpulse,
-                                                 t_afterpulse,
+                                                 t_afterpulse+t_first,
                                                  aHit->GetTubeId(),
                                                  aHit->GetmPMTId(),
                                                  aHit->GetmPMT_PMTId(),
@@ -56,9 +59,12 @@ void AddNoiseHits(const bool addAP, const bool addDN)
             };
         }
 
+        // dark noise
         if( addDN )
         {
-            fDN->GenerateDarkNoise( false );
+            fDN->GenerateDarkNoise( verbose );
+            if( verbose ){ verbose=false; }
+
             int nDarkHits=fDN->GetNumberOfGeneratedDarkHits();
             for(int j=0; j<nDarkHits; j++)
             {
@@ -77,20 +83,38 @@ void AddNoiseHits(const bool addAP, const bool addDN)
             }
         }
 
-        cout<<" Entry:" << i 
-            <<" - nDigiHits(Before):" << nDigiHits
-            <<" - nAP:" << nAP
-            <<" - nDN:" << nDN
-            <<" -- nDigiHits(After):" << anEvent->GetNcherenkovdigihits()
-            <<endl;
+        if( iEntry%10==0 )
+        {
+                std::cout<<" Entry:" << iEntry
+                         <<" - nDigiHits(Before):" << nDigiHits
+                         <<" - nAP:" << nAP
+                         <<" - nDN:" << nDN
+                         <<" -- nDigiHits(After):" << anEvent->GetNcherenkovdigihits()
+                         <<std::endl;
+        }
 
         fFile[eOUT]->cd();
         fTree[eOUT][eHitT]->Fill();
 
         fWCEvent->ReInitialize();
     }
- 
 }
+
+
+float GetFirstHitTime(const WCSimRootTrigger *anEvent)
+{
+    float tmin=9999999999999.;
+    WCSimRootCherenkovDigiHit *aDigi=NULL;
+    for(int iHit=0; iHit<anEvent->GetNcherenkovdigihits(); iHit++)
+    {
+        aDigi=dynamic_cast<WCSimRootCherenkovDigiHit*>( anEvent->GetCherenkovDigiHits()->At(iHit) );
+        if( aDigi->GetT()<tmin ){ tmin=aDigi->GetT(); }
+    }
+
+    return tmin;
+}
+
+
 
 void InitiPMTNoise(const int seed, const bool use_hzc)
 {
@@ -102,10 +126,13 @@ void InitiPMTNoise(const int seed, const bool use_hzc)
         // Use HZC afterpulse rate instead of Hamamatsu's one
         fAP->SetHZCRate();
     }
-
-                
-
+               
     fDN=new PMTDark( seed+1 );
+    fDN->SetMinTubeID( fMinTubeID );
+    fDN->SetMaxTubeID( fMaxTubeID );
+    fDN->SetWindowLow( fDarkTWinLow );
+    fDN->SetWindowUp( fDarkTWinUp );
+    fDN->SetDarkRate( fDarkRate );
 
     fPE=new PMTSinglePE( seed-1 );
 }
@@ -117,7 +144,6 @@ void SetInTree(const string infile)
     fTree[eIN][eHitT]=(TTree*)fFile[eIN]->Get( STREES[eHitT].c_str() );
 
     fWCEvent=new WCSimRootEvent();
-    cout<<" STREES[ eHitT]:" << STREES[ eHitT] <<endl;
     fTree[eIN][eHitT]->SetBranchAddress("wcsimrootevent", &fWCEvent);
 }
 
@@ -197,8 +223,6 @@ void LoadGeometryIDPMT(const string infile)
     fmPMTpmt_ID.reserve( fNPMTs_ID );
 
     Double_t x, y, z;
-    Int_t minTubeID=99999;
-    Int_t maxTubeID=-99999;
     Int_t iTubeID=0;
     for(int i=0; i<fNPMTs_ID; i++)
     {
@@ -228,31 +252,53 @@ void LoadGeometryIDPMT(const string infile)
     cout<<" Loaded Geometry information " <<endl;
 }
 
-//////////////////////////////////////////////
-int main(int argc, char **argv)
+bool ParseCmdArg(int argc, char **argv)
 {
-    for(int i=0; i<argc; i++)
-    {
-        std::cout<<" argv[" << i <<"]:" << argv[i] <<std::endl;
+    cout<<" Parsing command line arguments..... " <<endl;
+	for(int i=1; i<argc; i++)
+	{
+		cout<<"     - argv[" << i <<"] :" <<argv[i] <<endl;
+	}
+	cout<<endl;
 
-    }
 
-    string InFileName   =string( argv[1] );
-    string OutFileName  =string( argv[2] );
-    int Seed            =atoi( argv[3] ); 
-    bool Add_AP         =atoi( argv[4] );
-    bool Add_DN         =atoi( argv[5] );
-    bool Use_HZC        =false;
-    if( argc==7 ){ Use_HZC=atoi( argv[6] );}
-
-    LoadGeometryIDPMT(InFileName); // Order is important
-    InitiPMTNoise(Seed, Use_HZC);
-    SetInTree(InFileName);
-    SetOutTree(OutFileName);
-    AddNoiseHits(Add_AP, Add_DN);
-    WriteOutputs(InFileName, OutFileName);
-    
-return 0;
+	for(int i=1; i<argc; i++)
+	{
+		if( string(argv[i])=="-i" )			            { fInFileName   =TString( argv[i+1] );	i++;}
+		else if( string(argv[i])=="-o" )		        { fOutFileName	=TString( argv[i+1] );	i++;}
+		else if( string(argv[i])=="-s" )		        { fSeed	        =atoi( argv[i+1] );	    i++;}
+		else if( string(argv[i])=="-a" )		        { fAddAP	    =atoi( argv[i+1] );	    i++;}
+		else if( string(argv[i])=="-d" )		        { fAddDN	    =atoi( argv[i+1] );	    i++;}
+		else if( string(argv[i])=="--UseHZC" )		    { fUseHZC       =atoi( argv[i+1] );	    i++;}
+        else if( string(argv[i])=="--DarkTWinLow")      { fDarkTWinLow  =atof( argv[i+1] );     i++;}
+        else if( string(argv[i])=="--DarkTWinUp")       { fDarkTWinUp   =atof( argv[i+1] );     i++;}
+        else if( string(argv[i])=="--DarkRate")         { fDarkRate     =atof( argv[i+1] );     i++;}
+		else
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 
+//////////////////////////////////////////////
+int main(int argc, char **argv)
+{
+    bool CorrectCmdArgs=ParseCmdArg(argc, argv);
+    if( !CorrectCmdArgs )
+    {
+        std::cout<<" Wrong input command line arguments " <<std::endl;
+        std::cout<<" Please check the arguments..... "    <<std::endl;
+        return -1;
+    }
+
+    LoadGeometryIDPMT(fInFileName); // Order is important
+    InitiPMTNoise(fSeed, fUseHZC);
+    SetInTree(fInFileName);
+    SetOutTree(fOutFileName);
+    AddNoiseHits(fAddAP, fAddDN);
+    WriteOutputs(fInFileName, fOutFileName);
+    
+return 0;
+}

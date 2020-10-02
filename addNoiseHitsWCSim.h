@@ -52,10 +52,22 @@ PMTSinglePE   *fPE=NULL;
 Int_t fMinTubeID;
 Int_t fMaxTubeID;
 
+string fInFileName="";
+string fOutFileName="";
+
+int fSeed;
+bool fAddAP;
+bool fAddDN;
+bool fUseHZC;
+float fDarkRate     =1.;        // kHz per 3inch PMT
+float fDarkTWinLow  =-500.;     // ns
+float fDarkTWinUp   =30500.;   // ns
+
 void InitiPMTNoise(const int, const bool);
 void LoadGeometryIDPMT(const string);
 void SetInTree(const string);
 void SetOutTree(const string);
 void AddNoiseHits(const bool, const bool);
+float GetFirstHitTime(const WCSimRootTrigger*);
 void WriteOutputs(const string, const string);
-
+bool ParseCmdArg(int, char**);

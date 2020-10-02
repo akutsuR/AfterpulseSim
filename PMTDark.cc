@@ -1,11 +1,11 @@
 #include "PMTDark.h"
 
 PMTDark::PMTDark(const int seed) :
-fNPMTs( 15808 ),
+fNPMTs( 15808 ), // IWCD long tank geometry
 fMinTubeID( 1 ),
 fMaxTubeID( 15808 ),
 fWinLow( -400. ),
-fWinUp( 200000. ),
+fWinUp( 20000. ),
 fRdark( 1. ),
 fNnoise( 0 )
 {
@@ -24,6 +24,16 @@ PMTDark::~PMTDark()
 void PMTDark::SetNumberOfPMTs(const int npmts)
 {
    fNPMTs=npmts;
+}
+
+void PMTDark::SetMinTubeID(const int tubeID)
+{
+   fMinTubeID=tubeID;
+}
+
+void PMTDark::SetMaxTubeID(const int tubeID)
+{
+   fMaxTubeID=tubeID;
 }
 
 
