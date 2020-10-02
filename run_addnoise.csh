@@ -11,8 +11,12 @@ set seed=65645879
 set add_ap=1
 set add_dn=1
 
-$exe_noise $in_noise_file\
-           $out_noise_file\
-           $seed\
-           $add_ap\
-           $add_dn
+$exe_noise -i $in_noise_file\
+           -o $out_noise_file\
+           -s $seed\
+           -a $add_ap\
+           -d $add_dn\
+           --UseHZC 0\
+           --DarkTWinLow -500\
+           --DarkTWinUp 30000\
+           --DarkRate 1
