@@ -1,0 +1,16 @@
+# Edited by RA Apr. 2020 (rakutsu@triumf.ca)
+# 
+# -- Measurement results of 3-inch PMTs 
+# -- Analyzed by Kinoshita-kun (TUS)
+# -- Input provided by Kinoshita-kun: ** ap_fraction.root **
+#
+# ROOT file: https://www.dropbox.com/s/m517hfs9k52ngal/ap_fraction.root?dl=0 (Only for HAMAMATSU)
+#
+# ROOT file: https://www.dropbox.com/s/5uahtatkqam35ga/ap_fraction_3.root?dl=0 (Only for HZC)
+#
+# Summary slides: https://www.dropbox.com/s/uuhah5tzadba6ql/ap_fraction.pdf?dl=0
+# === fit_afterpulse_dt.C: fit the meausred dt distribution saved in the input file, and produce a fitted dt function. 
+#
+# === fit_afterpulse_rate.C: fit the meausured after pulse rate for various first hit charge (p.e.) by a linear function. 
+#
+# === NOTE: The outputs of the above two macros will be used as the input of afterpulse simulation. 
